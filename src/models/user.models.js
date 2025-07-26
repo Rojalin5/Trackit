@@ -1,5 +1,5 @@
-import { text } from "express";
 import mongoose from "mongoose";
+import { generateUserName } from "../utils/generateUserName.js";
 const userSchema = new mongoose.Schema(
   {
     fullName: {
@@ -43,4 +43,9 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 userSchema.index({fullName:"text",username:"text",email:"text"})
+
+userSchema.pre("save",async function(next) {
+    this.username = await generateUserName(this.name) 
+    
+})
 export const User = mongoose.model("User", userSchema);
