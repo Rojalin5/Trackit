@@ -20,3 +20,5 @@ const generateToken = async(userID)  =>{
         throw new ApiError(500,"Something went wrong while generating token")
     }
 }
+
+export {generateToken}
