@@ -62,6 +62,7 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found with this email.");
   }
   const isValidPassword = await user.isPasswordCorrect(password);
+
   if (!isValidPassword) {
     throw new ApiError(404, "Invalid Password.Try again");
   }

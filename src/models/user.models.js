@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
+      select:false
     },
     role: {
       type: String,
@@ -48,9 +49,11 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ fullName: "text", username: "text", email: "text" });
 
 userSchema.pre("save", async function (next) {
+  if(!this.username){
   this.username = await generateUserName(this.fullName);
+  }
   if (!this.isModified("password")) return next();
-  this.password = bcrypt.hash(this.password, 10);
+  this.password =await bcrypt.hash(this.password, 10);
   next();
 });
 userSchema.methods.isPasswordCorrect = async function (password) {
