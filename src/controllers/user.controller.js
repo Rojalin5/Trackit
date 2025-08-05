@@ -2,8 +2,13 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { User } from "../models/user.models.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+  uploadOnCloudinary,
+  extractpublicIDFromUrl,
+  deleteFileFromCloudinary,
+} from "../utils/cloudinary.js";
 import { generateToken } from "../utils/generateToken.js";
+import jwt from "jsonwebtoken";
 
 const registerUser = asyncHandler(async (req, res) => {
   const { fullName, email, password, role } = req.body;
@@ -123,17 +128,213 @@ const updateUserDetails = asyncHandler(async (req, res) => {
       },
     },
     { new: true }
-  ).select("-password")
-  if(!user){
-    throw new ApiError(404,"User not found!")
+  ).select("-password");
+  if (!user) {
+    throw new ApiError(404, "User not found!");
   }
-    return res
+  return res
     .status(200)
     .json(new ApiResponse(200, user, "User Details Updated Successfully"));
 });
+
 const currentUser = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, req.user, "User detail Fetched Successfully"));
 });
-export { registerUser, loginUser, logoutUser ,updateUserDetails,currentUser};
+const changePassword = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select("+password");
+  if (!user) {
+    throw new ApiError(404, "User not found.");
+  }
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    throw new ApiError(400, "Please provide all the required fields");
+  }
+  const isPasswordValid = await user.isPasswordCorrect(currentPassword);
+  if (!isPasswordValid) {
+    throw new ApiError(400, "Incorrect current password.Please try again.");
+  }
+  if (currentPassword == newPassword) {
+    throw new ApiError(
+      400,
+      "Please Add Differnet Password from Your previous Password!"
+    );
+  }
+  if (newPassword !== confirmPassword) {
+    throw new ApiError(400, "New Password and Confirm Password Must be same!");
+  }
+  user.password = newPassword;
+  await user.save();
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password CHnaged Successfully."));
+});
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Unauthorized request!");
+  }
+
+  const decodedToken = jwt.verify(
+    incomingRefreshToken,
+    process.env.REFRESH_TOKEN_SECRET
+  );
+
+  const user = await User.findById(decodedToken?._id);
+  if (!user) {
+    throw new ApiError(401, "Invalid refresh token. User not found.");
+  }
+
+  if (incomingRefreshToken !== user?.refreshToken) {
+    throw new ApiError(401, "Refresh token is expired or already used.");
+  }
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  const { accessToken, refreshToken } = await generateToken(user._id);
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(new ApiResponse(200, {}, "Access Token Generated Successfully."));
+});
+
+const updateProfilePicture = asyncHandler(async (req, res) => {
+  const profilePicturePath = req.file?.path;
+  if (!profilePicturePath) {
+    throw new ApiError(400, "You haven't set any profile picture yet!");
+  }
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    throw new ApiError(404, "User not found.");
+  }
+  if (
+    user.profilePicture &&
+    user.profilePicture !== process.env.DEFAULT_PROFILE_PICTURE
+  ) {
+    const publicID = extractpublicIDFromUrl(user.profilePicture);
+    if (publicID) {
+      await deleteFileFromCloudinary(publicID);
+    }
+    const newProfilePicture = await uploadOnCloudinary(profilePicturePath);
+    if (!newProfilePicture.url) {
+      throw new ApiError(
+        500,
+        "Something Went Wrong While Uploading Profilepicture."
+      );
+    }
+    const updateUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          profilePicture: newProfilePicture.url,
+        },
+      },
+      { new: true }
+    ).select("-password");
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          updateUser,
+          "Profile Picture Changed Successfully."
+        )
+      );
+  } else {
+    throw new ApiError(400, {}, "No custom profile picture found to update.");
+  }
+});
+
+const deleteProfilePicture = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    throw new ApiError(404, "User not found.");
+  }
+  if (
+    user.profilePicture &&
+    user.profilePicture !== process.env.DEFAULT_PROFILE_PICTURE
+  ) {
+    const publicID = extractpublicIDFromUrl(user.profilePicture);
+    if (publicID) {
+      await deleteFileFromCloudinary(publicID);
+    }
+    const updateUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          profilePicture: process.env.DEFAULT_PROFILE_PICTURE,
+        },
+      },
+      { new: true }
+    ).select("-password");
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          updateUser,
+          "Profile Picture Deleted Successfully."
+        )
+      );
+  } else {
+    throw new ApiError(400, {}, "No custom profile picture found to delete.");
+  }
+});
+
+const deleteUserProfile = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+
+  const user = await User.findById(req.user._id).select("+password");
+
+  if (!user) {
+    throw new ApiError(404, "User not found.");
+  }
+  if (!password) {
+    throw new ApiError(
+      400,
+      "Please confirm your password to delete your profile."
+    );
+  }
+
+  const isValid = await user.isPasswordCorrect(password);
+  if (!isValid) {
+    throw new ApiError(401, "Incorrect password. Cannot delete profile.");
+  }
+  if (
+    user.profilePicture &&
+    user.profilePicture !== process.env.DEFAULT_PROFILE_PICTURE
+  ) {
+    const publicID = extractpublicIDFromUrl(user.profilePicture);
+    if (publicID) {
+      await deleteFileFromCloudinary(publicID);
+    }
+  }
+  await User.findByIdAndDelete(req.user._id);
+  return res
+    .status(200)
+    .clearCookie("accessToken")
+    .clearCookie("refreshToken")
+    .json(
+      new ApiResponse(200, {}, "Your Profile has been deleted successfully.")
+    );
+});
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  updateUserDetails,
+  currentUser,
+  changePassword,
+  refreshAccessToken,
+  updateProfilePicture,
+  deleteProfilePicture,
+  deleteUserProfile,
+};
