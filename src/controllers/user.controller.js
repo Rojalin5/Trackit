@@ -96,16 +96,44 @@ const logoutUser = asyncHandler(async (req, res) => {
     },
     { new: true }
   );
-  const options={
-    httpOnly:true,
-    secure:true,
-    expires: new Date(0)
+  const options = {
+    httpOnly: true,
+    secure: true,
+    expires: new Date(0),
   };
-  return res.status(200)
-  .cookie("accessToken","",options)
-  .cookie("refreshToken","",options)
-  .json(
-    new ApiResponse(200,{},"User logged out successfully")
-  )
+  return res
+    .status(200)
+    .cookie("accessToken", "", options)
+    .cookie("refreshToken", "", options)
+    .json(new ApiResponse(200, {}, "User logged out successfully"));
 });
-export { registerUser, loginUser ,logoutUser};
+const updateUserDetails = asyncHandler(async (req, res) => {
+  const userID = req.user._id;
+  const { fullName, email, role } = req.body;
+  if (!fullName && !email && !role) {
+    throw new ApiError(400, "Please provide at least one field to update");
+  }
+  const user = await User.findByIdAndUpdate(
+    userID,
+    {
+      $set: {
+        fullName,
+        email,
+        role,
+      },
+    },
+    { new: true }
+  ).select("-password")
+  if(!user){
+    throw new ApiError(404,"User not found!")
+  }
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User Details Updated Successfully"));
+});
+const currentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "User detail Fetched Successfully"));
+});
+export { registerUser, loginUser, logoutUser ,updateUserDetails,currentUser};
