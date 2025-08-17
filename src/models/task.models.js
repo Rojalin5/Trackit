@@ -18,7 +18,7 @@ const taskSchema = new mongoose.Schema(
       required: false,
       index: true,
     },
-    status: {
+    taskStatus: {
       type: String,
       enum: ["Todo", "In-Progress", "Done"],
       default: "Todo",
@@ -35,7 +35,7 @@ const taskSchema = new mongoose.Schema(
       default: false,
       index:true
     },
-    tag: [
+    tags: [
       {
         type: String,
       },
