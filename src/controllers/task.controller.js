@@ -53,3 +53,39 @@ const createTask = asyncHandler(async (req, res) => {
 
   res.status(201).json(new ApiResponse(201, "task created successfully", task));
 });
+const getAllTasks = asyncHandler(async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    sortBy = "DueDate",
+    sortType = "desc",
+  } = req.query;
+  const pageNumber = parseInt(page);
+  const limitNumber = parseInt(limit);
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const filter = {};
+  if (query) {
+    filter.name = { $regex: query, $options: "i" };
+  }
+  filter.owner = req.user._id;
+  const sortOrder = sortType === "asc" ? 1 : -1;
+  const sortOption = { [sortBy]: sortOrder };
+
+  const allTasks = await Task.find(filter)
+    .sort(sortOption)
+    .skip(skip)
+    .limit(limitNumber);
+
+  const totalTasks = await Task.countDocuments(filter);
+  const totalPages = Math.ceil(totalTasks / limitNumber);
+
+  res.status(200).json(
+    new ApiResponse(200, allTasks, "All tasks fetched successfully", {
+      Page: pageNumber,
+      totalTasks: totalTasks,
+      totalPages: totalPages,
+    })
+  );
+});
+export { createTask ,getAllTasks};
