@@ -168,7 +168,7 @@ const changePassword = asyncHandler(async (req, res) => {
   await user.save();
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "Password CHnaged Successfully."));
+    .json(new ApiResponse(200, {}, "Password Changed Successfully."));
 });
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
@@ -208,6 +208,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
 const updateProfilePicture = asyncHandler(async (req, res) => {
   const profilePicturePath = req.file?.path;
+  console.log("FILE:", req.file);
+  // console.log("BODY:", req.body);
   if (!profilePicturePath) {
     throw new ApiError(400, "You haven't set any profile picture yet!");
   }
@@ -223,6 +225,7 @@ const updateProfilePicture = asyncHandler(async (req, res) => {
     if (publicID) {
       await deleteFileFromCloudinary(publicID);
     }
+  }
     const newProfilePicture = await uploadOnCloudinary(profilePicturePath);
     if (!newProfilePicture.url) {
       throw new ApiError(
@@ -248,9 +251,6 @@ const updateProfilePicture = asyncHandler(async (req, res) => {
           "Profile Picture Changed Successfully."
         )
       );
-  } else {
-    throw new ApiError(400, {}, "No custom profile picture found to update.");
-  }
 });
 
 const deleteProfilePicture = asyncHandler(async (req, res) => {
@@ -278,12 +278,11 @@ const deleteProfilePicture = asyncHandler(async (req, res) => {
     return res
       .status(200)
       .json(
-        new ApiResponse(
-          200,
-          updateUser,
-          "Profile Picture Deleted Successfully."
-        )
-      );
+       new ApiResponse(
+  200,
+ updateUser,
+  "Profile Picture Deleted Successfully."
+      ));
   } else {
     throw new ApiError(400, {}, "No custom profile picture found to delete.");
   }
