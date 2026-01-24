@@ -20,34 +20,34 @@ const taskSchema = new mongoose.Schema(
     },
     taskStatus: {
       type: String,
-      enum: ["Todo", "In-Progress", "Done"],
+      enum: ["todo", "in-Progress", "done"],
       default: "Todo",
-      index:true
+      index: true,
     },
     priority: {
       type: String,
-      enum: ["Low", "Medium", "High"],
+      enum: ["low", "medium", "high"],
       default: "Medium",
       index: true,
     },
     isCompleted: {
       type: Boolean,
       default: false,
-      index:true
+      index: true,
     },
     tags: [
       {
         type: String,
       },
     ],
-    attachment: {
+    attachment: [{
       fileName: String,
       file: String, //url
-    },
-    remainder: Date,
+    }],
+    reminder: Date,
   },
   { timestamps: true }
 );
-taskSchema.index({user:1,dueDate:1})
-taskSchema.index({taskTitle:"text",description:"text"})
+taskSchema.index({ user: 1, dueDate: 1 });
+taskSchema.index({ taskTitle: "text", description: "text" });
 export const Task = mongoose.model("Task", taskSchema);
