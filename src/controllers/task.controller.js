@@ -91,4 +91,16 @@ if (!req.user) {
     })
   );
 });
+getSingleTask = asyncHandler(async(req,res)=>{
+  const user = req.user;
+  if(!user){
+    throw new ApiError(401,"Unauthorized");
+  }
+  const taskId = req.params.id;
+  const task = await Task.findOne({_id:taskId,user:user._id});
+  if(!task){
+    throw new ApiError(404,"Task not found");
+  }
+  res.status(200).json(new ApiResponse(200,task,"Task fetched successfully"));
+})
 export { createTask ,getAllTasks};
