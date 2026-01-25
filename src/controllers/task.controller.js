@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/apiError";
+import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
-import { uploadOnCloudinary } from "../utils/cloudinary";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { Task } from "../models/task.models.js";
 
 const createTask = asyncHandler(async (req, res) => {
@@ -91,7 +91,7 @@ if (!req.user) {
     })
   );
 });
-getSingleTask = asyncHandler(async(req,res)=>{
+const getSingleTask = asyncHandler(async(req,res)=>{
   const user = req.user;
   if(!user){
     throw new ApiError(401,"Unauthorized");
@@ -103,4 +103,4 @@ getSingleTask = asyncHandler(async(req,res)=>{
   }
   res.status(200).json(new ApiResponse(200,task,"Task fetched successfully"));
 })
-export { createTask ,getAllTasks};
+export { createTask ,getAllTasks,getSingleTask};
