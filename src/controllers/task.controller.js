@@ -8,8 +8,8 @@ const createTask = asyncHandler(async (req, res) => {
   const { taskTitle, description, dueDate, taskStatus, priority, reminder } =
     req.body;
   if (!req.user) {
-  throw new ApiError(401, "Unauthorized");
-}
+    throw new ApiError(401, "Unauthorized");
+  }
 
   if (!taskTitle) {
     throw new ApiError(400, {}, "Task title is required.");
@@ -24,7 +24,10 @@ const createTask = asyncHandler(async (req, res) => {
       const TaskAttachmentFilePath = file.path;
       const TaskAttachment = await uploadOnCloudinary(TaskAttachmentFilePath);
       if (TaskAttachment) {
-        attachment.push({fileName:file.originalname,file:TaskAttachment.url});
+        attachment.push({
+          fileName: file.originalname,
+          file: TaskAttachment.url,
+        });
       }
     }
   }
@@ -51,26 +54,25 @@ const createTask = asyncHandler(async (req, res) => {
   res.status(201).json(new ApiResponse(201, "task created successfully", task));
 });
 const getAllTasks = asyncHandler(async (req, res) => {
-if (!req.user) {
-  throw new ApiError(401, "Unauthorized");
-}
+  if (!req.user) {
+    throw new ApiError(401, "Unauthorized");
+  }
   const {
     page = 1,
     limit = 10,
     sortBy = "dueDate",
     sortType = "desc",
   } = req.query;
-  const pageNumber = Math.max(1,parseInt(page) || 1);
-  const limitNumber = Math.min(50,Math.max(1,parseInt(limit)|| 10));
+  const pageNumber = Math.max(1, parseInt(page) || 1);
+  const limitNumber = Math.min(50, Math.max(1, parseInt(limit) || 10));
   const skip = (pageNumber - 1) * limitNumber;
 
   const filter = {};
-  const {query} = req.query;
+  const { query } = req.query;
   if (query) {
     filter.taskTitle = { $regex: query, $options: "i" };
   }
   filter.user = req.user._id;
-
 
   const sortOrder = sortType === "asc" ? 1 : -1;
   const sortOption = { [sortBy]: sortOrder };
@@ -91,16 +93,74 @@ if (!req.user) {
     })
   );
 });
-const getSingleTask = asyncHandler(async(req,res)=>{
+const getSingleTask = asyncHandler(async (req, res) => {
   const user = req.user;
-  if(!user){
-    throw new ApiError(401,"Unauthorized");
+  if (!user) {
+    throw new ApiError(401, "Unauthorized Request.");
   }
   const taskId = req.params.id;
-  const task = await Task.findOne({_id:taskId,user:user._id});
-  if(!task){
-    throw new ApiError(404,"Task not found");
+  const task = await Task.findOne({ _id: taskId, user: user._id });
+  if (!task) {
+    throw new ApiError(404, "Task not found");
   }
-  res.status(200).json(new ApiResponse(200,task,"Task fetched successfully"));
-})
-export { createTask ,getAllTasks,getSingleTask};
+  res.status(200).json(new ApiResponse(200, task, "Task fetched successfully"));
+});
+const updateTask = asyncHandler(async (req, res) => {
+  const {
+    taskTitle,
+    description,
+    dueDate,
+    taskStatus,
+    priority,
+    reminder,
+    tags,
+  } = req.body;
+  const user = req.user;
+  if (!user) {
+    throw new ApiError(401, "Unauthorized Request.");
+  }
+  const taskId = req.params.id;
+  let task = await Task.findOne({ _id: taskId, user: user._id });
+  if (!task) {
+    throw new ApiError(404, "Task not found");
+  }
+  let updateData = {};
+
+  if (taskTitle) updateData.taskTitle = taskTitle;
+  if (description) updateData.description = description;
+  if (dueDate) updateData.dueDate = dueDate;
+  if (taskStatus) updateData.taskStatus = taskStatus;
+  if (priority) updateData.priority = priority;
+  if (reminder) updateData.reminder = reminder;
+  if (tags) {
+    updateData.tags = Array.isArray(tags)
+      ? tags.map((t) => t.trim())
+      : tags.split(",").map((t) => t.trim());
+  }
+    if (Object.keys(updateData).length == 0) {
+    throw new ApiError(400, {}, "No data provided for update.");
+    }
+  const updatedTask = await Task.findByIdAndUpdate(
+    taskId,
+    { $set: updateData },
+    { new: true }
+  );
+  res
+    .status(200)
+    .json(new ApiResponse(200, updatedTask, "Task updated successfully"));
+});
+
+const deleteTask = asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user) {
+    throw new ApiError(401, "Unauthorized Request.");
+  }
+  const taskId = req.params.id;
+  const task = await Task.findOne({ _id: taskId, user: user._id });
+  if (!task) {
+    throw new ApiError(404, "Task not found");
+  }
+  await Task.findByIdAndDelete(taskId);
+  res.status(200).json(new ApiResponse(200, {}, "Task deleted successfully"));
+});
+export { createTask, getAllTasks, getSingleTask, updateTask, deleteTask };
