@@ -12,7 +12,7 @@ const createTask = asyncHandler(async (req, res) => {
   }
 
   if (!taskTitle) {
-    throw new ApiError(400, {}, "Task title is required.");
+    throw new ApiError(400, "Task title is required.");
   }
   let attachment = [];
   if (
@@ -51,7 +51,10 @@ const createTask = asyncHandler(async (req, res) => {
     reminder,
   });
 
-  res.status(201).json(new ApiResponse(201, "task created successfully", task));
+  res.status(201).json(
+  new ApiResponse(201, task, "Task created successfully")
+);
+
 });
 const getAllTasks = asyncHandler(async (req, res) => {
   if (!req.user) {
@@ -137,8 +140,8 @@ const updateTask = asyncHandler(async (req, res) => {
       ? tags.map((t) => t.trim())
       : tags.split(",").map((t) => t.trim());
   }
-    if (Object.keys(updateData).length == 0) {
-    throw new ApiError(400, {}, "No data provided for update.");
+    if (Object.keys(updateData).length === 0) {
+    throw new ApiError(400,"No data provided for update.");
     }
   const updatedTask = await Task.findByIdAndUpdate(
     taskId,
@@ -163,4 +166,55 @@ const deleteTask = asyncHandler(async (req, res) => {
   await Task.findByIdAndDelete(taskId);
   res.status(200).json(new ApiResponse(200, {}, "Task deleted successfully"));
 });
-export { createTask, getAllTasks, getSingleTask, updateTask, deleteTask };
+const updateTaskAttachments = asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user) {
+    throw new ApiError(401, "Unauthorized Request.");
+  }
+
+  const taskId = req.params.id;
+
+  const task = await Task.findOne({
+    _id: taskId,
+    user: user._id,
+  });
+
+  if (!task) {
+    throw new ApiError(404, "Task not found");
+  }
+
+  // No files sent
+  if (
+    !req.files ||
+    !Array.isArray(req.files.attachment) ||
+    req.files.attachment.length === 0
+  ) {
+    throw new ApiError(400, "No attachments provided");
+  }
+
+  let newAttachments = [];
+
+  for (const file of req.files.attachment) {
+    const uploaded = await uploadOnCloudinary(file.path);
+    if (uploaded) {
+      newAttachments.push({
+        fileName: file.originalname,
+        file: uploaded.url,
+      });
+    }
+  }
+
+  // Append to existing attachments
+  task.attachment = [...task.attachment, ...newAttachments];
+  await task.save();
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      task,
+      "Attachments updated successfully"
+    )
+  );
+});
+
+export { createTask, getAllTasks, getSingleTask, updateTask, deleteTask ,updateTaskAttachments};
