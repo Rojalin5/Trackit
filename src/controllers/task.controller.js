@@ -51,10 +51,7 @@ const createTask = asyncHandler(async (req, res) => {
     reminder,
   });
 
-  res.status(201).json(
-  new ApiResponse(201, task, "Task created successfully")
-);
-
+  res.status(201).json(new ApiResponse(201, task, "Task created successfully"));
 });
 const getAllTasks = asyncHandler(async (req, res) => {
   if (!req.user) {
@@ -140,9 +137,9 @@ const updateTask = asyncHandler(async (req, res) => {
       ? tags.map((t) => t.trim())
       : tags.split(",").map((t) => t.trim());
   }
-    if (Object.keys(updateData).length === 0) {
-    throw new ApiError(400,"No data provided for update.");
-    }
+  if (Object.keys(updateData).length === 0) {
+    throw new ApiError(400, "No data provided for update.");
+  }
   const updatedTask = await Task.findByIdAndUpdate(
     taskId,
     { $set: updateData },
@@ -151,20 +148,6 @@ const updateTask = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new ApiResponse(200, updatedTask, "Task updated successfully"));
-});
-
-const deleteTask = asyncHandler(async (req, res) => {
-  const user = req.user;
-  if (!user) {
-    throw new ApiError(401, "Unauthorized Request.");
-  }
-  const taskId = req.params.id;
-  const task = await Task.findOne({ _id: taskId, user: user._id });
-  if (!task) {
-    throw new ApiError(404, "Task not found");
-  }
-  await Task.findByIdAndDelete(taskId);
-  res.status(200).json(new ApiResponse(200, {}, "Task deleted successfully"));
 });
 const updateTaskAttachments = asyncHandler(async (req, res) => {
   const user = req.user;
@@ -208,13 +191,55 @@ const updateTaskAttachments = asyncHandler(async (req, res) => {
   task.attachment = [...task.attachment, ...newAttachments];
   await task.save();
 
-  res.status(200).json(
-    new ApiResponse(
-      200,
-      task,
-      "Attachments updated successfully"
-    )
+  res
+    .status(200)
+    .json(new ApiResponse(200, task, "Attachments updated successfully"));
+});
+const removeTaskAttachments = asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user) {
+    throw new ApiError(401, "Unauthorized Request.");
+  }
+  const { taskId, attachmentId } = req.params;
+  const task = await Task.findOne({
+    _id: taskId,
+    user: user._id,
+  });
+  if (!task) {
+    throw new ApiError(404, "Task not found");
+  }
+  const attachmentIndex = task.attachment.findIndex(
+    (att) => att._id.toString() === attachmentId
   );
+  if (attachmentIndex === -1) {
+    throw new ApiError(404, "Attachment not found in the task");
+  }
+  task.attachment.splice(attachmentIndex, 1);
+  await task.save();
+  res
+    .status(200)
+    .json(new ApiResponse(200, task, "Attachment removed successfully"));
+});
+const deleteTask = asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user) {
+    throw new ApiError(401, "Unauthorized Request.");
+  }
+  const taskId = req.params.id;
+  const task = await Task.findOne({ _id: taskId, user: user._id });
+  if (!task) {
+    throw new ApiError(404, "Task not found");
+  }
+  await Task.findByIdAndDelete(taskId);
+  res.status(200).json(new ApiResponse(200, {}, "Task deleted successfully"));
 });
 
-export { createTask, getAllTasks, getSingleTask, updateTask, deleteTask ,updateTaskAttachments};
+export {
+  createTask,
+  getAllTasks,
+  getSingleTask,
+  updateTask,
+  updateTaskAttachments,
+  removeTaskAttachments,
+  deleteTask,
+};

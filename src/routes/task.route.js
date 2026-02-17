@@ -4,8 +4,8 @@ import {
   getAllTasks,
   getSingleTask,
   updateTask,
+  updateTaskAttachments,
   deleteTask,
-  updateTaskAttachments
 } from "../controllers/task.controller.js";
 import { authenticateUser } from "../middlewares/authentication.middlewares.js";
 import { upload } from "../middlewares/multer.middlewares.js";
@@ -37,5 +37,6 @@ router.put(
   ]),
   updateTaskAttachments
 );
+router.route("/update-attachments/:id").delete(authenticateUser,updateTaskAttachments)
 router.route("/delete-task/:id").delete(authenticateUser, deleteTask);
 export default router;
