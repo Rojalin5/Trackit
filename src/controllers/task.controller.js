@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { deleteFileFromCloudinary } from "../utils/cloudinary.js";
 import { Task } from "../models/task.models.js";
 
 const createTask = asyncHandler(async (req, res) => {
@@ -26,7 +27,8 @@ const createTask = asyncHandler(async (req, res) => {
       if (TaskAttachment) {
         attachment.push({
           fileName: file.originalname,
-          file: TaskAttachment.url,
+          file: TaskAttachment.secure_url,
+          public_Id: TaskAttachment.public_id,
         });
       }
     }
@@ -73,6 +75,7 @@ const getAllTasks = asyncHandler(async (req, res) => {
     filter.taskTitle = { $regex: query, $options: "i" };
   }
   filter.user = req.user._id;
+  filter.isDeleted = false;
 
   const sortOrder = sortType === "asc" ? 1 : -1;
   const sortOption = { [sortBy]: sortOrder };
@@ -99,7 +102,11 @@ const getSingleTask = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Unauthorized Request.");
   }
   const taskId = req.params.id;
-  const task = await Task.findOne({ _id: taskId, user: user._id });
+  const task = await Task.findOne({
+    _id: taskId,
+    user: user._id,
+    isDeleted: false,
+  });
   if (!task) {
     throw new ApiError(404, "Task not found");
   }
@@ -120,7 +127,11 @@ const updateTask = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Unauthorized Request.");
   }
   const taskId = req.params.id;
-  let task = await Task.findOne({ _id: taskId, user: user._id });
+  let task = await Task.findOne({
+    _id: taskId,
+    user: user._id,
+    isDeleted: false,
+  });
   if (!task) {
     throw new ApiError(404, "Task not found");
   }
@@ -140,8 +151,8 @@ const updateTask = asyncHandler(async (req, res) => {
   if (Object.keys(updateData).length === 0) {
     throw new ApiError(400, "No data provided for update.");
   }
-  const updatedTask = await Task.findByIdAndUpdate(
-    taskId,
+  const updatedTask = await Task.findOneAndUpdate({_id:
+    taskId,user:user._id,isDeleted:false},
     { $set: updateData },
     { new: true }
   );
@@ -160,6 +171,7 @@ const updateTaskAttachments = asyncHandler(async (req, res) => {
   const task = await Task.findOne({
     _id: taskId,
     user: user._id,
+    isDeleted: false,
   });
 
   if (!task) {
@@ -176,13 +188,13 @@ const updateTaskAttachments = asyncHandler(async (req, res) => {
   }
 
   let newAttachments = [];
-
   for (const file of req.files.attachment) {
     const uploaded = await uploadOnCloudinary(file.path);
     if (uploaded) {
       newAttachments.push({
         fileName: file.originalname,
-        file: uploaded.url,
+        file: uploaded.secure_url,
+        public_Id: uploaded.public_id,
       });
     }
   }
@@ -204,6 +216,7 @@ const removeTaskAttachments = asyncHandler(async (req, res) => {
   const task = await Task.findOne({
     _id: taskId,
     user: user._id,
+    isDeleted: false,
   });
   if (!task) {
     throw new ApiError(404, "Task not found");
@@ -213,6 +226,11 @@ const removeTaskAttachments = asyncHandler(async (req, res) => {
   );
   if (attachmentIndex === -1) {
     throw new ApiError(404, "Attachment not found in the task");
+  }
+
+  const attachment = task.attachment[attachmentIndex];
+  if(attachment.public_Id){
+    await deleteFileFromCloudinary(attachment.public_Id);
   }
   task.attachment.splice(attachmentIndex, 1);
   await task.save();
@@ -226,11 +244,16 @@ const deleteTask = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Unauthorized Request.");
   }
   const taskId = req.params.id;
-  const task = await Task.findOne({ _id: taskId, user: user._id });
+  const task = await Task.findOne({
+    _id: taskId,
+    user: user._id,
+    isDeleted: false,
+  });
   if (!task) {
     throw new ApiError(404, "Task not found");
   }
-  await Task.findByIdAndDelete(taskId);
+  task.isDeleted = true;
+  await task.save();
   res.status(200).json(new ApiResponse(200, {}, "Task deleted successfully"));
 });
 

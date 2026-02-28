@@ -9,41 +9,56 @@ const taskSchema = new mongoose.Schema(
     },
     taskTitle: {
       type: String,
-      required: true,
-      index: true,
+      required: [true, "Task title is required"],
+      trim: true,
     },
     description: String,
     dueDate: {
       type: Date,
-      required: false,
-      index: true,
+      validate:{
+        validator: function(value) {
+          return !value || value > new Date();
+        },
+        message:"Invalid due date.",
+      },
     },
     taskStatus: {
       type: String,
-      enum: ["todo", "in-Progress", "done"],
-      default: "Todo",
+      enum: {
+        values: ["pending", "completed", "overdue"],
+        message: "Invalid task status",
+      },
+      default: "pending",
       index: true,
     },
     priority: {
       type: String,
-      enum: ["low", "medium", "high"],
-      default: "Medium",
+      enum: {
+        values: ["low", "medium", "high"],
+        message: "Priority must be either low, medium, or high",
+      },
+      default: "medium",
       index: true,
     },
-    isCompleted: {
-      type: Boolean,
-      default: false,
-      index: true,
+
+    isDeleted:{
+      type:Boolean,
+      default:false,
+      index:true,
     },
-    tags: [
+    tags:
       {
-        type: String,
+        type: [String],
+        default: [],
+        index: true,
+      },
+    attachment: [
+      {
+        fileName: String,
+        file: String, //url
+        public_Id: String,
       },
     ],
-    attachment: [{
-      fileName: String,
-      file: String, //url
-    }],
     reminder: Date,
   },
   { timestamps: true }
